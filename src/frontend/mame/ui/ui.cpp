@@ -660,8 +660,10 @@ void mame_ui_manager::display_startup_screens(bool first_time)
 {
 	const int maxstate = 3;
 	int const str = machine().options().seconds_to_run();
-	bool show_gameinfo = !machine().options().skip_gameinfo();
-	bool show_warnings = true;
+	// RAVE build: no game info or emulation warning screens waiting for a key (RAVE launches games itself, in captured
+	// windows). The missing media images request below still shows.
+	bool show_gameinfo = false;
+	bool show_warnings = false;
 	bool video_none = strcmp(downcast<osd_options &>(machine().options()).video(), OSDOPTVAL_NONE) == 0;
 
 	// disable everything if we are using -str for 300 (5 minutes) or fewer seconds, or if we're the empty driver,
