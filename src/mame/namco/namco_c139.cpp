@@ -158,7 +158,7 @@ public:
 		if (err)
 			osd_printf_verbose("C139 [%s]: remote address resolve error: %s\n", m_device.tag(), err.message().c_str());
 
-		m_ioctx.post(
+		asio::post(m_ioctx, 
 				[this]()
 				{
 					std::error_code e;
@@ -179,7 +179,7 @@ public:
 
 	void stop()
 	{
-		m_ioctx.post(
+		asio::post(m_ioctx, 
 				[this]()
 				{
 					m_stopping = true;
@@ -227,7 +227,7 @@ public:
 		const bool was_empty = (m_fifo_tx.used() == 0);
 		m_fifo_tx.write(buffer, data_size);
 		if (was_empty)
-			m_ioctx.post([this]() { start_send_tx(); });
+			asio::post(m_ioctx, [this]() { start_send_tx(); });
 		return data_size;
 	}
 
