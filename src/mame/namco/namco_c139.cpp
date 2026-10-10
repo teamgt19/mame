@@ -527,6 +527,12 @@ void namco_c139_device::regs_map(address_map &map)
 
 
 //-------------------------------------------------
+//  namco_c139_device - destructor (here, where net_context is complete)
+//-------------------------------------------------
+
+namco_c139_device::~namco_c139_device() = default;
+
+//-------------------------------------------------
 //  namco_c139_device - constructor
 //-------------------------------------------------
 

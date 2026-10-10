@@ -43,6 +43,7 @@ class namco_c139_device : public device_t
 public:
 	// construction/destruction
 	namco_c139_device(const machine_config &mconfig, const char *tag, device_t *owner, uint32_t clock = 0);
+	~namco_c139_device(); // defined where net_context is complete (unique_ptr member)
 
 	// IRQ callback — fired when a communication event occurs (mode-dependent)
 	auto irq_cb() { return m_irq_cb.bind(); }
