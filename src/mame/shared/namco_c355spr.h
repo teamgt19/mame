@@ -29,6 +29,7 @@ public:
 	void set_buffer(int buffer) { m_buffer = buffer; }
 	void set_external_prifill(bool external) { m_external_prifill = external; }
 	void set_alt_precision(bool alt_precision) { m_alt_precision = alt_precision; }
+	void set_palette_shift(int shift) { m_palette_shift = shift; } // Galaxian^3: palette select sits 4 bits higher
 	void set_colors(int colors) { m_colors = colors; }
 	void set_granularity(int granularity) { m_granularity = granularity; }
 
@@ -135,6 +136,7 @@ private:
 	int m_buffer;
 	bool m_external_prifill;
 	bool m_alt_precision;
+	int m_palette_shift;
 
 	u8 m_transpen;
 	u16 m_colbase;

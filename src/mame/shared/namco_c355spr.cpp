@@ -83,6 +83,7 @@ namco_c355spr_device::namco_c355spr_device(const machine_config &mconfig, device
 	m_buffer(0),
 	m_external_prifill(false),
 	m_alt_precision(false),
+	m_palette_shift(0),
 	m_transpen(255),
 	m_colbase(0),
 	m_colors(16),
@@ -481,7 +482,7 @@ void namco_c355spr_device::get_single_sprite(u16 which, c355_sprite *sprite_ptr)
 	 * --------xxxx---- priority
 	 * ------------xxxx palette select
 	 */
-	u16 palette = m_read_spritetable(which, 6);
+	u16 palette = m_read_spritetable(which, 6) >> m_palette_shift;
 	const int priority = m_pri_cb(palette);
 
 	if (priority == -1)
