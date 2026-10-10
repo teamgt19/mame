@@ -1116,47 +1116,19 @@ Notes:
 
 // Main CPU
 
-/* SCI, preliminary!
-
-20020000  2 R/W RX Status
-            0x01 : Frame Error
-            0x02 : Frame Received
-            0x04 : ?
-
-20020002  2 R/W Status/Control Flags
-            0x01 :
-            0x02 : RX flag? (cleared every vsync)
-            0x04 : RX flag? (cleared every vsync)
-            0x08 :
-
-20020004  2 W   FIFO Control Register
-            0x01 : sync bit enable?
-            0x02 : TX FIFO sync bit (bit-8)
-
-20020006  2 W   TX Control Register
-            0x01 : TX start/stop
-            0x02 : ?
-            0x10 : ?
-
-20020008  2 W   -
-2002000a  2 W   TX Frame Size
-2002000c  2 R/W RX FIFO Pointer (0x0000 - 0x0fff)
-2002000e  2 W   TX FIFO Pointer (0x0000 - 0x1fff)
-*/
-u16 namcos22_state::namcos22_sci_r(offs_t offset)
+// C139 SCI IRQ callback — relays the serial controller interrupt to the main CPU.
+// The IRQ line (bit 2 of m_irq_enabled / m_irq_state) corresponds to syscontrol[2].
+void namcos22_state::sci_int_w(int state)
 {
-	switch (offset)
+	const int line = 0x04;
+	if (m_irq_enabled & line)
 	{
-		case 0x0:
-			return 0x0004;
-
-		default:
-			return 0;
+		if (state)
+			m_irq_state |= line;
+		else
+			m_irq_state &= ~line;
+		m_maincpu->set_input_line(m_syscontrol[2] & 7, state ? ASSERT_LINE : CLEAR_LINE);
 	}
-}
-
-void namcos22_state::namcos22_sci_w(offs_t offset, u16 data)
-{
 }
 
 
@@ -1687,38 +1659,14 @@ void namcos22_state::namcos22_am(address_map &map)
 	 *     20010000 - 20011fff  TX Buffer
 	 *     20012000 - 20013fff  RX FIFO Buffer (also used for TX Buffer)
 	 */
-	map(0x20010000, 0x20013fff).ram();
+	map(0x20010000, 0x20013fff).m(m_sci, FUNC(namco_c139_device::data_map));
 
 	/**
 	 * C139 SCI Register
 	 * Mounted position: CPU 4R
-	 *
-	 *     20020000  2  R/W RX Status
-	 *         0x01 : Frame Error
-	 *         0x02 : Frame Received
-	 *         0x04 : ?
-	 *
-	 *     20020002  2  R/W Status/Control Flags
-	 *         0x01 :
-	 *         0x02 : RX flag? (cleared every vsync)
-	 *         0x04 : RX flag? (cleared every vsync)
-	 *         0x08 :
-	 *
-	 *     20020004  2  W   FIFO Control Register
-	 *         0x01 : sync bit enable?
-	 *         0x02 : TX FIFO sync bit (bit-8)
-	 *
-	 *     20020006  2  W   TX Control Register
-	 *         0x01 : TX start/stop
-	 *         0x02 : ?
-	 *         0x10 : ?
-	 *
-	 *     20020008  2  W   -
-	 *     2002000a  2  W   TX Frame Size
-	 *     2002000c  2  R/W RX FIFO Pointer (0x0000 - 0x0fff)
-	 *     2002000e  2  W   TX FIFO Pointer (0x0000 - 0x1fff)
+	 * Register map: see namco_c139.h
 	 */
-	map(0x20020000, 0x2002000f).rw(FUNC(namcos22_state::namcos22_sci_r), FUNC(namcos22_state::namcos22_sci_w));
+	map(0x20020000, 0x2002000f).m(m_sci, FUNC(namco_c139_device::regs_map));
 
 	/**
 	 * System Controller: Interrupt Control, Peripheral Control
@@ -1859,8 +1807,8 @@ void namcos22s_state::namcos22s_am(address_map &map)
 {
 	map(0x000000, 0x3fffff).rom();
 	map(0x400000, 0x40001f).rw(FUNC(namcos22s_state::namcos22_keycus_r), FUNC(namcos22s_state::namcos22_keycus_w));
-	map(0x410000, 0x413fff).ram(); // C139 SCI buffer
-	map(0x420000, 0x42000f).rw(FUNC(namcos22s_state::namcos22_sci_r), FUNC(namcos22s_state::namcos22_sci_w)); // C139 SCI registers
+	map(0x410000, 0x413fff).m(m_sci, FUNC(namco_c139_device::data_map)); // C139 SCI buffer
+	map(0x420000, 0x42000f).m(m_sci, FUNC(namco_c139_device::regs_map)); // C139 SCI registers
 	map(0x430000, 0x430003).w(FUNC(namcos22s_state::namcos22_cpuleds_w));
 	map(0x440000, 0x440003).portr("DSW");
 	map(0x450008, 0x45000b).rw(FUNC(namcos22s_state::namcos22_portbit_r), FUNC(namcos22s_state::namcos22_portbit_w));
@@ -3057,13 +3005,15 @@ static INPUT_PORTS_START( ridgeracf )
 	PORT_BIT( 0x0080, IP_ACTIVE_LOW, IPT_BUTTON6 ) PORT_NAME("MT Switch")
 	PORT_BIT( 0x0100, IP_ACTIVE_LOW, IPT_SERVICE2 )
 
-	// DIP3-1 to DIP3-3 are for setting up the viewing angle (game used one board per screen?)
-	// Some of the other dipswitches are for debugging, like with Ridge Racer 2.
+	// SW2:1 (bit 16) and SW2:2 (bit 17) encode the PCB identity for the 3-screen installation.
+	// Each of the three identical boards is configured by the operator via these switches.
+	// The center board generates and transmits scene data; right relays to left; left receives only.
+	// Exact DIP encoding unverified on real hardware — assumed consistent with ridgerac3m.
 	PORT_MODIFY("DSW")
-	PORT_DIPUNKNOWN_DIPLOC( 0x00010000, 0x00010000, "SW2:1" )
-	PORT_DIPNAME( 0x00020000, 0x00000000, "Unknown" ) PORT_DIPLOCATION("SW2:2") // always on?
-	PORT_DIPSETTING(          0x00020000, DEF_STR( Off ) )
-	PORT_DIPSETTING(          0x00000000, DEF_STR( On ) )
+	PORT_DIPNAME( 0x00030000, 0x00010000, "PCB Role (3-Screen)" ) PORT_DIPLOCATION("SW2:1,2")
+	PORT_DIPSETTING(          0x00010000, "Center (master — generates and TX scene data)" )
+	PORT_DIPSETTING(          0x00020000, "Left Screen (slave — receive only)" )
+	PORT_DIPSETTING(          0x00030000, "Right Screen (forwarder — relays to left)" )
 	PORT_DIPNAME( 0x80000000, 0x80000000, "Test Mode 2" ) PORT_DIPLOCATION("SW3:8")
 	PORT_DIPSETTING(          0x80000000, DEF_STR( Off ) )
 	PORT_DIPSETTING(          0x00000000, DEF_STR( On ) )
@@ -3641,6 +3591,26 @@ void namcos22_state::machine_reset()
 	m_dsp_irq_enabled = false;
 
 	m_mcu->set_input_line(INPUT_LINE_RESET, ASSERT_LINE);
+
+	// Configure C139 topology role for 3-screen installations (ridgeracf, ridgerac3m).
+	// Must be done in machine_reset(), not machine_start() — input ports are
+	// not readable during MACHINE_PHASE_INIT.
+	// SW2:1 (bit 16) + SW2:2 (bit 17) identify this PCB in the ring:
+	//   0x10000 = center  (master — originates TX; default role)
+	//   0x20000 = left    (slave — receive only)
+	//   0x30000 = right   (forwarder — relays center data to left screen)
+	// ridgeracf encoding unverified on real hardware — assumed consistent with ridgerac3m.
+	const bool is_3screen = (strcmp(machine().system().name, "ridgeracf")  == 0 ||
+	                         strcmp(machine().system().name, "ridgerac3m") == 0);
+	if (is_3screen)
+	{
+		const u32 pcb = ioport("DSW")->read() & 0x00030000U;
+		if (pcb == 0x00020000U)
+			m_sci->set_role(namco_c139_device::role_t::SLAVE);
+		else if (pcb == 0x00030000U)
+			m_sci->set_role(namco_c139_device::role_t::FORWARDER);
+		// 0x10000 = center — default role_t::CENTER, no call needed
+	}
 }
 
 // allow save_item on a non-fundamental type
@@ -3733,6 +3703,7 @@ void namcos22_state::machine_start()
 	save_item(NAME(m_render_refresh));
 	save_item(NAME(m_pdp_frame));
 	save_item(NAME(m_pdp_base));
+
 }
 
 void namcos22s_state::machine_start()
@@ -3804,6 +3775,9 @@ void namcos22_state::namcos22(machine_config &config)
 	// high quantum is needed for main CPU => master DSP comms (acedrive, victlap video test)
 	// and erratic inputs otherwise in ss22 games, probably mcu vs maincpu shareram
 	config.set_maximum_quantum(attotime::from_hz(40000));
+
+	NAMCO_C139(config, m_sci, 0U);
+	m_sci->irq_cb().set(FUNC(namcos22_state::sci_int_w));
 
 	EEPROM_2864(config, "eeprom").write_time(attotime::zero);
 
