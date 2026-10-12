@@ -2014,11 +2014,13 @@ ROM_START( gal3 )
 
 	/********* Laserdiscs *********/
 
+	// Each screen has its own disc: Disc1 = left screen, Disc2 = right screen (same frame numbers, the right camera turned
+	// to the right). RAVE CHDs from the Internet Archive RF captures (English side B), made with ld-decode.
 	DISK_REGION("laserdisc_1")
-	DISK_IMAGE_READONLY("gal3", 0, SHA1(dfbd67f25b24996455f13c0ce5fdf8d20c30fc8a))
+	DISK_IMAGE_READONLY("gal3_disc1", 0, SHA1(fb2f04102f04a91bd81f50b4b7b9c91fe2f7ecd1))
 
 	DISK_REGION("laserdisc_2")
-	DISK_IMAGE_READONLY("gal3", 0, SHA1(dfbd67f25b24996455f13c0ce5fdf8d20c30fc8a))
+	DISK_IMAGE_READONLY("gal3_disc2", 0, SHA1(f25f7c97a9134858dcd513b4806d8eeb88c31603))
 
 
 	
@@ -2117,11 +2119,12 @@ ROM_START( gal3zlgr )
 
 	/********* Laserdiscs *********/
 	
+	// Disc1 = left screen, Disc2 = right screen (as Dragoon). Checksums go in when the RAVE CHDs are made.
 	DISK_REGION( "laserdisc_1" )
-	DISK_IMAGE_READONLY("gal3zlgr", 0, SHA1(2355aa5dfdfd8c0a5cd1ef87d508c53e9fb52299))
+	DISK_IMAGE_READONLY("gal3zlgr_disc1", 0, NO_DUMP)
 
 	DISK_REGION( "laserdisc_2" )
-	DISK_IMAGE_READONLY("gal3zlgr", 0, SHA1(2355aa5dfdfd8c0a5cd1ef87d508c53e9fb52299))
+	DISK_IMAGE_READONLY("gal3zlgr_disc2", 0, NO_DUMP)
 
 ROM_END
 
