@@ -16,9 +16,11 @@
 #include "emu.h"
 
 #include "asio.h"
+#include "osdcore.h"
 
 #include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <algorithm>
 #include <iterator>
 #include <locale>
@@ -35,6 +37,29 @@
 namespace osd {
 
 namespace {
+
+// RAVE: several copies run at once (one per cabinet), so each one listens on the port RAVE hands it in
+// RAVE_OUTPUT_PORT when it starts it; 8000 (MAME's own port) when that is not set.
+unsigned listen_port()
+{
+	char const *const text = std::getenv("RAVE_OUTPUT_PORT");
+	if (text && *text)
+	{
+		char *end = nullptr;
+		long const port = std::strtol(text, &end, 10);
+		if (end && !*end && (0 < port) && (65536 > port))
+			return unsigned(port);
+	}
+	return 8000;
+}
+
+// RAVE: which emulator build is talking, sent to every client as it connects (before mame_start), so RAVE can tell
+// the standalone MAME from the libretro core and match the copy to the cabinet that started it by process id.
+#if defined(__LIBRETRO__)
+constexpr char const RAVE_EMULATOR[] = "mame-libretro";
+#else
+constexpr char const RAVE_EMULATOR[] = "mame";
+#endif
 
 class output_network : public osd_module, public output_module
 {
@@ -142,7 +167,7 @@ public:
 
 			// open a listening socket
 			std::error_code err;
-			asio::ip::tcp::endpoint local(asio::ip::address_v6::any(), 8000);
+			asio::ip::tcp::endpoint local(asio::ip::address_v6::any(), listen_port());
 			m_acceptor.open(local.protocol(), err);
 			if (!err)
 				m_acceptor.bind(local, err);
@@ -312,6 +337,8 @@ private:
 							osd_printf_verbose("Output: accepted connection %s <- %s\n",
 									ins->socket.local_endpoint(), ins->socket.remote_endpoint());
 							start_receive(ins);
+							ins->queue_message(util::string_format("rave_emulator = %s", RAVE_EMULATOR));
+							ins->queue_message(util::string_format("rave_pid = %d", osd_getpid()));
 							{
 								std::lock_guard<std::mutex> lock(m_machine_mutex);
 								if (m_machine)
