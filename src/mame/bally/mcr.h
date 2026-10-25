@@ -50,7 +50,14 @@ public:
 		m_samples(*this, "samples"),
 		m_gfxdecode(*this, "gfxdecode"),
 		m_palette(*this, "palette"),
-		m_backlight(*this, "backlight")
+		m_backlight(*this, "backlight"),
+		m_lamp_pattern(*this, "lamp_pattern"),
+		m_backlight_strobe(*this, "backlight_strobe"),
+		m_background_lamp(*this, "background_lamp"),
+		m_seq_lamps(*this, "seqlamp%u", 0U),
+		m_seq_enable(*this, "seq_enable"),
+		m_seq_select(*this, "seq_select"),
+		m_seq_fast(*this, "seq_fast")
 	{ }
 
 	void mcr_control_port_w(uint8_t data);
@@ -142,6 +149,29 @@ protected:
 
 private:
 	output_finder<> m_backlight;
+	// RAVE: Discs of Tron (Environmental) cabinet lamps as outputs (init_dotrone, dotron_op4_w)
+	output_finder<> m_lamp_pattern;       // the program's lamp sequence byte (RAM 0xe103)
+	output_finder<> m_backlight_strobe;   // FL1: the background tube's 8.5714 Hz strobe is enabled
+	output_finder<> m_background_lamp;    // the background tube itself: FL0, or the strobe's on half
+	output_finder<5> m_seq_lamps;         // seqlamp0-4: the lamp sequencer board's 5 lamps (82S123 PROM)
+	output_finder<> m_seq_enable;         // the sequencer's latched controls
+	output_finder<> m_seq_select;
+	output_finder<> m_seq_fast;
+	memory_passthrough_handler m_lamp_pattern_tap;
+	emu_timer *m_strobe_timer = nullptr;
+	emu_timer *m_seq_timer = nullptr;
+	const uint8_t *m_lamp_prom = nullptr;
+	bool m_fl0 = false;
+	bool m_strobe_on = false;
+	bool m_strobe_phase = false;
+	bool m_seq_en = false;
+	bool m_seq_sel = false;
+	bool m_seq_speed = false;
+	uint8_t m_seq_count = 0;
+	TIMER_CALLBACK_MEMBER(dotron_strobe_tick);
+	TIMER_CALLBACK_MEMBER(dotron_seq_tick);
+	void dotron_update_background();
+	void dotron_update_seq_lamps();
 	uint32_t m_mcr_cpu_board = 0;
 	uint32_t m_mcr_sprite_board = 0;
 
