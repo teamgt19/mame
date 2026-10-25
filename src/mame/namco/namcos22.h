@@ -231,6 +231,10 @@ public:
 		m_opt(*this, "OPT.%u", 0),
 		m_mcu_out(*this, "mcuout%u", 0U),
 		m_cpuled_out(*this, "cpuled%u", 0U),
+		m_rrf_lamps(*this, "lamps"),
+		m_rrf_speed(*this, "speed"),
+		m_rrf_rpm(*this, "rpm"),
+		m_rrf_outputs(*this, "outputs"),
 		m_wheel_motor(*this, "wheel_motor")
 	{ }
 
@@ -243,6 +247,7 @@ public:
 	void init_victlap();
 	void init_cybrcomm();
 	void init_ridgerac();
+	void init_ridgeracf();
 
 	// renderer
 	u16 *m_texture_tilemap;
@@ -444,6 +449,14 @@ protected:
 	optional_ioport_array<2> m_opt;
 	output_finder<16> m_mcu_out;
 	output_finder<8> m_cpuled_out;
+	// RAVE: Ridge Racer Full Scale keeps its cabinet lamps, gauges and outputs only in shared RAM; these copy them out
+	// (init_ridgeracf) under the names the ridgeracf_outputs plugin used
+	output_finder<> m_rrf_lamps;    // 0x60004021: BIT4 = attract2, BIT5 = attract1
+	output_finder<> m_rrf_speed;    // 0x6000402f: speed gauge (0x08-0x53)
+	output_finder<> m_rrf_rpm;      // 0x6000402d: rpm gauge (0x00-0x40)
+	output_finder<> m_rrf_outputs;  // 0x60004031: active low, BIT0 = Step, BIT1 = Wall, BIT4 = Coin (0xff = all off)
+	emu_timer *m_rrf_timer = nullptr;
+	TIMER_CALLBACK_MEMBER(ridgeracf_outputs_tick);
 	output_finder<> m_wheel_motor;
 
 	u8 m_syscontrol[0x20] = { };
