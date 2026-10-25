@@ -335,6 +335,7 @@ public:
 		m_maincpu(*this, "maincpu"),
 		m_subcpu(*this,"sub"),
 		m_soundcpu(*this,"soundcpu"),
+		m_lamps(*this, "lamp%u", 0U),
 		//m_dmac(*this, "i8237"),
 		m_framebuffer_vram(*this, "fb_vram"),
 		m_txt_vram(*this, "txt_vram"),
@@ -372,6 +373,7 @@ public:
 	required_device<sh7604_device> m_maincpu;
 	required_device<sh7032_device> m_subcpu;
 	required_device<cpu_device> m_soundcpu;
+	output_finder<8> m_lamps;   // RAVE: lamp0..lamp7 = the lamp byte's bits (see lamps_w)
 	//required_device<am9517a_device> m_dmac;
 
 	required_shared_ptr<uint32_t> m_framebuffer_vram;
@@ -2866,6 +2868,10 @@ void coolridr_state::lamps_w(uint8_t data)
 	---- -x-- P1 Start Lamp
 	---- ---x (used in game?)
 	*/
+	// RAVE: hand them out as outputs (lamp2 P1 start, lamp3 P2 start, lamp4 P1 race leader, lamp5 P2 race leader,
+	// lamp6 P1 music select, lamp7 P2 music select) - the cabinet's lamps follow them
+	for (int i = 0; i < 8; i++)
+		m_lamps[i] = BIT(data, i);
 }
 
 template <unsigned N> TIMER_CALLBACK_MEMBER(coolridr_state::sound_dma_cb)

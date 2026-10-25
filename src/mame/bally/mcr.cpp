@@ -585,6 +585,22 @@ void mcr_state::dotron_op4_w(uint8_t data)
 	/* bit 6 = FL0 (J1-4) on flasher control board */
 	m_backlight = BIT(data, 6);
 
+	// RAVE: the tube as the cabinet sees it - FL0 lights it, FL1 runs the 555 strobe (77.616 ms on, 38.808 ms off),
+	// the two wire-ored together (Environmental cabinet: the timers exist only there, see init_dotrone)
+	if (m_strobe_timer)
+	{
+		m_fl0 = BIT(data, 6);
+		const bool strobe = BIT(data, 7);
+		if (strobe != m_strobe_on)
+		{
+			m_strobe_on = strobe;
+			m_backlight_strobe = strobe;
+			m_strobe_phase = strobe;
+			m_strobe_timer->adjust(strobe ? attotime::from_usec(77616) : attotime::never);
+		}
+		dotron_update_background();
+	}
+
 	/*
 	    Lamp Sequencer:
 	        A 556 timer is set up in astable mode with two different frequencies,
@@ -616,6 +632,20 @@ void mcr_state::dotron_op4_w(uint8_t data)
 		/* bit 1 -> J1-5 = sequence select */
 		/* bit 0 -> J1-6 = speed (0=slow, 1=fast) */
 		logerror("Lamp: en=%d seq=%d speed=%d\n", (data >> 2) & 1, (data >> 1) & 1, data & 1);
+
+		// RAVE: the latched controls as outputs, and the sequencer itself run from its clock and PROM
+		if (m_seq_timer)
+		{
+			m_seq_en = !BIT(data, 2);
+			m_seq_sel = BIT(data, 1);
+			m_seq_speed = BIT(data, 0);
+			m_seq_enable = m_seq_en;
+			m_seq_select = m_seq_sel;
+			m_seq_fast = m_seq_speed;
+			const attotime period = m_seq_speed ? attotime::from_hz(9.4118) : attotime::from_hz(4.8);
+			m_seq_timer->adjust(period, 0, period);
+			dotron_update_seq_lamps();
+		}
 	}
 	m_last_op4 = data;
 
@@ -623,6 +653,36 @@ void mcr_state::dotron_op4_w(uint8_t data)
 	/* bits 3-0 = MD3-0 connected to squawk n talk (J1-4,3,2,1) */
 	m_squawk_n_talk->sound_select(data & 0x0f);
 	m_squawk_n_talk->sound_int(BIT(data, 4));
+}
+
+// RAVE: the background strobe's 555: on 77.616 ms, off 38.808 ms, while FL1 is set
+TIMER_CALLBACK_MEMBER(mcr_state::dotron_strobe_tick)
+{
+	m_strobe_phase = !m_strobe_phase;
+	m_strobe_timer->adjust(attotime::from_usec(m_strobe_phase ? 77616 : 38808));
+	dotron_update_background();
+}
+
+void mcr_state::dotron_update_background()
+{
+	m_background_lamp = m_fl0 || (m_strobe_on && m_strobe_phase);
+}
+
+// RAVE: the lamp sequencer's 556 clock steps its counter (the low 4 bits address the PROM)
+TIMER_CALLBACK_MEMBER(mcr_state::dotron_seq_tick)
+{
+	m_seq_count = (m_seq_count + 1) & 0x0f;
+	dotron_update_seq_lamps();
+}
+
+// the 5 PROM bits, inverted, light the 5 lamps; the upper address bit is the sequence select; /CE off = all dark
+void mcr_state::dotron_update_seq_lamps()
+{
+	uint8_t bits = 0;
+	if (m_seq_en && m_lamp_prom)
+		bits = ~m_lamp_prom[(m_seq_sel ? 0x10 : 0x00) | m_seq_count] & 0x1f;
+	for (int i = 0; i < 5; i++)
+		m_seq_lamps[i] = BIT(bits, i);
 }
 
 
@@ -3133,6 +3193,23 @@ void mcr_state::init_dotrone()
 	mcr_init(91490, 91464, 91657);
 
 	m_ssio->set_custom_output(4, 0xff, *this, FUNC(mcr_state::dotron_op4_w));
+
+	// RAVE: the program keeps the cabinet's lamp sequence (the light show it wants: 0x00 idle, 0x01 solid background,
+	// 0x02 background flash, 0x03-0x06 forward / reverse fast / slow, 0x07 strobe, 0x08 foot lights, 0xFB-0xFF combos)
+	// only in RAM at 0xe103 - handed out as the output "lamp_pattern" so a cabinet can follow it (was a Lua plugin)
+	m_lamp_pattern_tap = m_maincpu->space(AS_PROGRAM).install_write_tap(
+			0xe103, 0xe103, "lamp_pattern",
+			[this] (offs_t offset, u8 &data, u8 mem_mask)
+			{
+				if (!machine().side_effects_disabled())
+					m_lamp_pattern = data;
+			});
+
+	// RAVE: the flasher control board's strobe and the lamp sequencer board (dotron_op4_w drives both); the
+	// sequencer PROM (edotlamp.u2) sits at 0x20 in "proms"
+	m_strobe_timer = timer_alloc(FUNC(mcr_state::dotron_strobe_tick), this);
+	m_seq_timer = timer_alloc(FUNC(mcr_state::dotron_seq_tick), this);
+	m_lamp_prom = memregion("proms")->base() + 0x20;
 }
 
 
