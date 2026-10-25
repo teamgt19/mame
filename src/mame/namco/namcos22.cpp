@@ -6258,6 +6258,25 @@ void namcos22_state::init_ridgerac()
 	install_c74_speedup();
 }
 
+// RAVE: Ridge Racer Full Scale's lamps, gauges and cabinet outputs live only in shared RAM (bytes 0x21 / 0x2f / 0x2d /
+// 0x31 past 0x60004000 = the high bytes of words 0x10 / 0x17 / 0x16 / 0x18); either CPU may write them, so I read them
+// every frame and hand them to the output system (it only passes on changes).
+TIMER_CALLBACK_MEMBER(namcos22_state::ridgeracf_outputs_tick)
+{
+	m_rrf_lamps = m_shareram[0x20 / 2] >> 8;
+	m_rrf_speed = m_shareram[0x2e / 2] >> 8;
+	m_rrf_rpm = m_shareram[0x2c / 2] >> 8;
+	m_rrf_outputs = m_shareram[0x30 / 2] >> 8;
+}
+
+void namcos22_state::init_ridgeracf()
+{
+	init_ridgerac();
+	m_rrf_outputs = 0xff; // all off until the game writes them
+	m_rrf_timer = timer_alloc(FUNC(namcos22_state::ridgeracf_outputs_tick), this);
+	m_rrf_timer->adjust(attotime::from_hz(60), 0, attotime::from_hz(60));
+}
+
 void namcos22_state::init_ridgera2()
 {
 	m_gametype = NAMCOS22_RIDGE_RACER2;
@@ -6400,7 +6419,7 @@ GAME( 1993, ridgeracb,  ridgerac, namcos22,  ridgera,    namcos22_state,  init_r
 GAME( 1993, ridgeracc,  ridgerac, namcos22,  ridgera,    namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (US, RR3)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS ) // 1993-10-28, reports as "-Foreign B-"
 GAME( 1993, ridgeracj,  ridgerac, namcos22,  ridgera,    namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (Japan, RR1)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS ) // 1993-10-07
 GAME( 1994, ridgerac3m, ridgerac, namcos22,  ridgerac3m, namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer (World, RRC, three monitor version)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NOT_WORKING ) // 1994-07-01, Standard game with 3 monitor linkup
-GAME( 1993, ridgeracf,  0,        namcos22,  ridgeracf,  namcos22_state,  init_ridgerac,  ROT0, "Namco", "Ridge Racer Full Scale (World, RRF2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NOT_WORKING ) // 1993-12-13, very different version, incomplete dump.
+GAME( 1993, ridgeracf,  0,        namcos22,  ridgeracf,  namcos22_state,  init_ridgeracf, ROT0, "Namco", "Ridge Racer Full Scale (World, RRF2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NOT_WORKING ) // 1993-12-13, very different version, incomplete dump.
 GAME( 1994, ridgera2,   0,        namcos22,  ridgera2,   namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (World, RRS2)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-21 - NOT labeled "B" but based off Japan Rev.B
 GAME( 1994, ridgera2j,  ridgera2, namcos22,  ridgera2,   namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (Japan, RRS1 Ver.B)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-21
 GAME( 1994, ridgera2ja, ridgera2, namcos22,  ridgera2,   namcos22_state,  init_ridgera2,  ROT0, "Namco", "Ridge Racer 2 (Japan, RRS1)", MACHINE_SUPPORTS_SAVE | MACHINE_IMPERFECT_GRAPHICS | MACHINE_NODEVICE_LAN ) // 1994-06-13
