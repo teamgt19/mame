@@ -2005,12 +2005,12 @@ ROM_START( gal3zlgr )
 
 	/********* Laserdiscs *********/
 	
-	// Disc1 = left screen, Disc2 = right screen (as Dragoon). Checksums go in when the RAVE CHDs are made.
+	// Disc1 = left screen, Disc2 = right screen (as Dragoon). RAVE CHDs from the Internet Archive RF captures (English side B).
 	DISK_REGION( "laserdisc_1" )
-	DISK_IMAGE_READONLY("gal3zlgr_disc1", 0, NO_DUMP)
+	DISK_IMAGE_READONLY("gal3zlgr_disc1", 0, SHA1(79c09b691bb87141ac316625ac9da8ecdec8d6c4))
 
 	DISK_REGION( "laserdisc_2" )
-	DISK_IMAGE_READONLY("gal3zlgr_disc2", 0, NO_DUMP)
+	DISK_IMAGE_READONLY("gal3zlgr_disc2", 0, SHA1(049ff6c1e2c1f764a2008488eadf7ef6e6053ffb))
 
 ROM_END
 
