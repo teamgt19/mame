@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <iterator>
 #include <locale>
+#include <deque>
 #include <list>
 #include <mutex>
 #include <sstream>
@@ -295,6 +296,15 @@ private:
 			return true;
 		}
 
+		// RAVE: moves what fits of this client's own backlog (the outputs' values when it connected) into the send
+		// buffer; true when the backlog is empty, so the shared changes can follow in order.
+		bool fill_backlog()
+		{
+			while (!backlog.empty() && queue_message(backlog.front()))
+				backlog.pop_front();
+			return backlog.empty();
+		}
+
 		asio::ip::tcp::socket socket;
 		queued_message_iterator next_message;
 		std::size_t received;
@@ -304,6 +314,7 @@ private:
 		bool overlong;
 		char receive_buffer[256];
 		char send_buffer[2048];
+		std::deque<std::string> backlog;
 	};
 
 	using client_list = std::list<client>;
@@ -345,6 +356,16 @@ private:
 								{
 									ins->queue_message(util::string_format("mame_start = %s", m_machine->system().name));
 									assert(ins->queued);
+									// RAVE: every output's value as it is now - a client that connects after the game
+									// started (RAVE always does) would otherwise never see what was set before it (the
+									// Subroc-3D score / best-3 digits stayed wrong until each changed again). Only
+									// changes follow, so without this the start state is lost.
+									m_machine->output().notify_all(
+											[&ins] (osd::output_item const &item)
+											{
+												ins->backlog.emplace_back(util::string_format("%s = %d", item.qualified_name(), item.value()));
+											});
+									ins->fill_backlog();
 								}
 							}
 							if (ins->queued)
@@ -443,7 +464,8 @@ private:
 					else
 					{
 						it->consume_sent(length);
-						while (!it->next_message->first.empty())
+						// RAVE: the connect-time values go out first, then the changes queued since
+						while (it->fill_backlog() && !it->next_message->first.empty())
 						{
 							assert(it->next_message->second);
 							if (it->queue_message(it->next_message->first) || !it->queued)
